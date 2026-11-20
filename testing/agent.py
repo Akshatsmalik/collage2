@@ -1,5 +1,4 @@
 from typing import Annotated, TypedDict
-
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
@@ -109,6 +108,7 @@ review_llm = ChatOllama(
     num_predict=2000,
     num_gpu=999,
 )
+
 summary_llm = ChatOllama(
     model=REVIEW_MODEL,
     num_ctx=8192,
@@ -128,7 +128,6 @@ SYSTEM_PROMPT = SystemMessage(
 
 WRITE_TOOLS = {"write_project_file", "edit_project_file"}
 
-
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
     target_path: str
@@ -136,7 +135,6 @@ class AgentState(TypedDict):
     logic_validated: bool
     attempts: int
     stalls: int
-
 
 def message_text(msg) -> str:
     content = getattr(msg, "content", "")
@@ -152,7 +150,6 @@ def message_text(msg) -> str:
         return "".join(parts)
     return str(content or "")
 
-
 def run_pylint(filepath: str) -> dict:
     abs_path = abs_project_path(filepath)
     proc = subprocess.run(
@@ -167,7 +164,6 @@ def run_pylint(filepath: str) -> dict:
         issues = []
     errors = [i for i in issues if i.get("type") in ("error", "fatal")]
     return {"errors": errors, "passed": len(errors) == 0}
-
 
 def run_eslint(filepath: str) -> dict:
     abs_path = abs_project_path(filepath)
@@ -191,11 +187,9 @@ def run_eslint(filepath: str) -> dict:
     ]
     return {"messages": messages, "passed": error_count == 0}
 
-
 def call_llm(state: AgentState):
     response = llm_with_tools.invoke([SYSTEM_PROMPT] + state["messages"])
     return {"messages": [response]}
-
 
 def capture_write_path(state: AgentState):
     last_ai = next(
@@ -209,7 +203,6 @@ def capture_write_path(state: AgentState):
                 if path:
                     return {"target_path": path, "validated": False, "logic_validated": False}
     return {}
-
 
 def validate_node(state: AgentState):
     path = state.get("target_path") or ""
@@ -266,7 +259,6 @@ def validate_node(state: AgentState):
     )
     return {"messages": [SystemMessage(content=feedback)], "validated": False, "attempts": attempts}
 
-
 def logic_check_node(state: AgentState):
     path = state.get("target_path") or ""
     code = read_file(path)
@@ -308,7 +300,6 @@ FAIL: <specific description of the logic bug and what it should do instead>
         "attempts": attempts,
     }
 
-
 def summary_node(state: AgentState):
     resp = summary_llm.invoke(
         state["messages"]
@@ -322,7 +313,6 @@ def summary_node(state: AgentState):
         ]
     )
     return {"messages": [resp]}
-
 
 def stall_nudge_node(state: AgentState):
     stalls = state.get("stalls", 0) + 1
@@ -339,7 +329,6 @@ def stall_nudge_node(state: AgentState):
         "stalls": stalls,
     }
 
-
 def after_llm(state: AgentState):
     lastmsg = state["messages"][-1]
     if getattr(lastmsg, "tool_calls", None):
@@ -349,7 +338,6 @@ def after_llm(state: AgentState):
             return END
         return "stall_nudge"
     return END
-
 
 def after_route(state: AgentState):
     last_ai = next(
@@ -399,18 +387,18 @@ graph.add_conditional_edges(
     "validate",
     after_validate,
     {"logic_check": "logic_check", "llm": "llm", END: END},
-)
+)   
 graph.add_conditional_edges(
     "logic_check",
     after_logic_check,
     {"summary": "summary", "llm": "llm", END: END},
-)
+)   
 graph.add_edge("stall_nudge", "llm")
 graph.add_edge("summary", END)
-
+    
 app = graph.compile()
-
-
+    
+    
 def initial_state(task: str) -> AgentState:
     return {
         "messages": [HumanMessage(content=task)],
@@ -420,8 +408,8 @@ def initial_state(task: str) -> AgentState:
         "attempts": 0,
         "stalls": 0,
     }
-
-
+    
+    
 def run_agent(task: str) -> None:
     for stream_type, chunk in app.stream(
         initial_state(task),
